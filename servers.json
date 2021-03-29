@@ -1,0 +1,17 @@
+{
+    "servers": {
+      "urls": [
+        "http://localhost:8081",
+        "http://localhost:8082",
+        "http://localhost:8083"
+      ]
+    },
+    "load_balancer": {
+      "port": 8080,
+      "health_check_interval_seconds": 30,
+      "redis_address": "localhost:6379",
+      "redis_password": "",
+      "redis_db": 0
+    }
+}
+  
