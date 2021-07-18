@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,70 +11,16 @@ import (
 	"syscall"
 	"time"
 
+
 	"github.com/go-redis/redis/v8"
 	"golang.org/x/net/context"
+
+	"loadbalancer/config"
+	"loadbalancer/server"
 )
 
-type Server struct {
-	URL     string
-	Load    int
-	Healthy bool
-	mu      sync.Mutex
-	client  *redis.Client
-	ctx     context.Context
-	logger  *log.Logger
-}
-
-func NewServer(url string, client *redis.Client, ctx context.Context, logger *log.Logger) *Server {
-	return &Server{
-		URL:     url,
-		Healthy: true,
-		client:  client,
-		ctx:     ctx,
-		logger:  logger,
-	}
-}
-
-func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if !s.Healthy {
-		http.Error(w, "Server is not healthy", http.StatusServiceUnavailable)
-		s.logger.Printf("Rejected request to %s as server is not healthy", s.URL)
-		return
-	}
-
-	s.Load++
-	s.client.Incr(s.ctx, s.URL+":load")
-	s.logger.Printf("Handling request on server %s. Current load: %d\n", s.URL, s.Load)
-
-	// Simulate request processing
-	time.Sleep(2 * time.Second)
-
-	s.Load--
-	s.client.Decr(s.ctx, s.URL+":load")
-	s.logger.Printf("Finished request on server %s. Current load: %d\n", s.URL, s.Load)
-}
-
-func (s *Server) CheckHealth() {
-	resp, err := http.Get(s.URL + "/health")
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err != nil || resp.StatusCode != http.StatusOK {
-		s.Healthy = false
-		s.client.Set(s.ctx, s.URL+":healthy", false, 0)
-		s.logger.Printf("Server %s is unhealthy\n", s.URL)
-	} else {
-		s.Healthy = true
-		s.client.Set(s.ctx, s.URL+":healthy", true, 0)
-		s.logger.Printf("Server %s is healthy\n", s.URL)
-	}
-}
-
 type LoadBalancer struct {
-	Servers []*Server
+	Servers []*server.Server
 	mu      sync.Mutex
 	client  *redis.Client
 	ctx     context.Context
@@ -81,18 +28,18 @@ type LoadBalancer struct {
 }
 
 func (lb *LoadBalancer) AddServer(url string) {
-	server := NewServer(url, lb.client, lb.ctx, lb.logger)
+	server := server.NewServer(url, lb.client, lb.ctx, lb.logger)
 	lb.Servers = append(lb.Servers, server)
 	lb.client.Set(lb.ctx, url+":load", 0, 0)
-	lb.client.Set(lb.ctx, url+":healthy", true, 0)
+	lb.client.Set(lb.ctx, url+server.HealthyKey, true, 0)
 	lb.logger.Printf("Added server %s to the load balancer", url)
 }
 
-func (lb *LoadBalancer) GetLeastLoadedServer() *Server {
+func (lb *LoadBalancer) GetLeastLoadedServer() *server.Server {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
-	var leastLoadedServer *Server
+	var leastLoadedServer *server.Server
 	for _, server := range lb.Servers {
 		load, err := lb.client.Get(lb.ctx, server.URL+":load").Int()
 		if err != nil {
@@ -100,7 +47,7 @@ func (lb *LoadBalancer) GetLeastLoadedServer() *Server {
 			continue
 		}
 
-		healthy, err := lb.client.Get(lb.ctx, server.URL+":healthy").Bool()
+		healthy, err := lb.client.Get(lb.ctx, server.URL+server.HealthyKey).Bool()
 		if err != nil {
 			lb.logger.Printf("Error getting health status for server %s: %v\n", server.URL, err)
 			continue
@@ -131,7 +78,7 @@ func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (lb *LoadBalancer) StartHealthChecks(interval time.Duration) {
 	for _, server := range lb.Servers {
-		go func(s *Server) {
+		go func(s *server.Server) {
 			for {
 				s.CheckHealth()
 				time.Sleep(interval)
@@ -144,6 +91,23 @@ func (lb *LoadBalancer) GracefulShutdown() {
 	// Code to gracefully shutdown servers and connections
 	lb.logger.Println("Shutting down load balancer gracefully")
 	// Implement any necessary cleanup or final logging
+}
+
+
+
+func LoadConfig(filename string) (*config.Config, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	config := &config.Config{}
+	if err := json.NewDecoder(file).Decode(config); err != nil {
+		return nil, err
+	}
+
+	return config, nil
 }
 
 func main() {
