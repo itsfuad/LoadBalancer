@@ -61,11 +61,11 @@ func (s *Server) CheckHealth() {
 
 	if err != nil || resp.StatusCode != http.StatusOK {
 		s.Healthy = false
-		s.client.Set(s.ctx, s.URL+healthyKey, false, 0)
+		s.client.Set(s.ctx, s.URL+HealthyKey, false, 0)
 		s.logger.Printf("Server %s is unhealthy\n", s.URL)
 	} else {
 		s.Healthy = true
-		s.client.Set(s.ctx, s.URL+healthyKey, true, 0)
+		s.client.Set(s.ctx, s.URL+HealthyKey, true, 0)
 		s.logger.Printf("Server %s is healthy\n", s.URL)
 	}
 }
