@@ -19,6 +19,8 @@ type LoadBalancer struct {
 	Client  *redis.Client
 	Ctx     context.Context
 	Logger  *log.Logger
+	wg      sync.WaitGroup
+	shutdown bool
 }
 
 func (lb *LoadBalancer) AddServer(url string) {
@@ -82,7 +84,21 @@ func (lb *LoadBalancer) StartHealthChecks(interval time.Duration) {
 }
 
 func (lb *LoadBalancer) GracefulShutdown() {
-	// Code to gracefully shutdown servers and connections
+	// Notify about the shutdown process
 	lb.Logger.Println("Shutting down load balancer gracefully")
-	// Implement any necessary cleanup or final logging
+
+	// Stop accepting new requests
+	lb.mu.Lock()
+	lb.shutdown = true
+	lb.mu.Unlock()
+
+	// Wait for ongoing requests to complete
+	lb.wg.Wait()
+
+	// Close Redis client connection
+	if err := lb.Client.Close(); err != nil {
+		lb.Logger.Printf("Error closing Redis connection: %v", err)
+	}
+
+	lb.Logger.Println("All servers have been shut down, and connections are closed.")
 }
