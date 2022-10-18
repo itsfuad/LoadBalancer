@@ -19,7 +19,7 @@ This project is a Go-based load balancer designed to distribute incoming HTTP re
 
 1. **Clone the Repository:**
 ```sh
-git clone https://github.com/itsfuad/loadbalancer.git
+git clone https://github.com/itsfuad/LoadBalancer.git
 cd loadbalancer
 ```
 2. **Install Dependencies:**
@@ -30,7 +30,7 @@ go get github.com/go-redis/redis/v8
 ```
 **Build the Load Balancer:**
 ```sh
-go build -o loadbalancer main.go
+go build -o LoadBalancer main.go
 ```
 
 ## Configuration
