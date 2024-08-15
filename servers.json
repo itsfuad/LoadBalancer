@@ -1,9 +1,8 @@
 {
     "servers": {
       "urls": [
-        "https://chat.brainbird.org/",
-        "http://localhost:8082",
-        "http://localhost:8083"
+        "http://localhost:5173",
+        "http://localhost:5174"
       ]
     },
     "load_balancer": {

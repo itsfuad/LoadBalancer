@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"golang.org/x/net/context"
 
 	sv "loadbalancer/server"
@@ -16,7 +15,6 @@ import (
 type LoadBalancer struct {
 	Servers []*sv.Server
 	mu      sync.Mutex
-	Client  *redis.Client
 	Ctx     context.Context
 	Logger  *log.Logger
 	wg      sync.WaitGroup
@@ -24,10 +22,8 @@ type LoadBalancer struct {
 }
 
 func (lb *LoadBalancer) AddServer(url string) {
-	server := sv.NewServer(url, lb.Client, lb.Ctx, lb.Logger)
+	server := sv.NewServer(url, lb.Ctx, lb.Logger)
 	lb.Servers = append(lb.Servers, server)
-	lb.Client.Set(lb.Ctx, url+":load", 0, 0)
-	lb.Client.Set(lb.Ctx, url+sv.HealthyKey, true, 0)
 	lb.Logger.Printf("Added server %s to the load balancer", url)
 }
 
@@ -37,17 +33,8 @@ func (lb *LoadBalancer) GetLeastLoadedServer() *sv.Server {
 
 	var leastLoadedServer *sv.Server
 	for _, server := range lb.Servers {
-		load, err := lb.Client.Get(lb.Ctx, server.URL+":load").Int()
-		if err != nil {
-			lb.Logger.Printf("Error getting load for server %s: %v\n", server.URL, err)
-			continue
-		}
-
-		healthy, err := lb.Client.Get(lb.Ctx, server.URL+sv.HealthyKey).Bool()
-		if err != nil {
-			lb.Logger.Printf("Error getting health status for server %s: %v\n", server.URL, err)
-			continue
-		}
+		healthy := server.Healthy
+		load := server.Load
 
 		if healthy && (leastLoadedServer == nil || load < leastLoadedServer.Load) {
 			server.Load = load
@@ -94,11 +81,6 @@ func (lb *LoadBalancer) GracefulShutdown() {
 
 	// Wait for ongoing requests to complete
 	lb.wg.Wait()
-
-	// Close Redis client connection
-	if err := lb.Client.Close(); err != nil {
-		lb.Logger.Printf("Error closing Redis connection: %v", err)
-	}
 
 	lb.Logger.Println("All servers have been shut down, and connections are closed.")
 }

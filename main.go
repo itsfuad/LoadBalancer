@@ -10,7 +10,6 @@ import (
 	"time"
 
 
-	"github.com/go-redis/redis/v8"
 	"golang.org/x/net/context"
 
 	"loadbalancer/config"
@@ -27,15 +26,10 @@ func main() {
 		logger.Fatalf("Error loading configuration: %v\n", err)
 	}
 
-	client := redis.NewClient(&redis.Options{
-		Addr:     config.RedisHost+":"+config.RedisPort,
-		Password: config.RedisPassword,
-	})
 	ctx := context.Background()
 
 	// Create load balancer
 	lb := &balancer.LoadBalancer{
-		Client: client,
 		Ctx:    ctx,
 		Logger: logger,
 	}
