@@ -6,7 +6,6 @@ This project is a Go-based load balancer designed to distribute incoming HTTP re
 ## Features
 - **Dynamic Load Balancing:** Distributes requests to the least loaded server.
 - **Health Checks:** Regularly checks the health of each server and only routes traffic to healthy servers.
-- **Redis Integration:** Uses Redis for state management, allowing for efficient and centralized load and health tracking.
 - **Graceful Shutdown:** Ensures that ongoing requests are handled before shutting down the load balancer.
 - **Configuration via JSON:** Server details and settings are loaded from a JSON configuration file.
 - **Detailed Logging:** Provides comprehensive logging for monitoring and debugging.
@@ -52,9 +51,6 @@ Create a servers.json file in the root directory with the following structure:
 }
 ```
 + port: The port on which the load balancer will listen.
-+ redis_address: Address of the Redis server.
-+ redis_password: Password for the Redis server (if any).
-+ redis_db: Redis database number.
 + health_check_interval_seconds: Interval in seconds for health checks.
 + urls: List of backend server URLs.
 
