@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -18,39 +17,19 @@ import (
 	"loadbalancer/balancer"
 )
 
-
-
-
-
-func LoadConfig(filename string) (*config.Config, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	config := &config.Config{}
-	if err := json.NewDecoder(file).Decode(config); err != nil {
-		return nil, err
-	}
-
-	return config, nil
-}
-
 func main() {
 	// Setup logger
 	logger := log.New(os.Stdout, "load-balancer: ", log.LstdFlags)
 
 	// Load configuration and initialize Redis
-	config, err := LoadConfig("servers.json")
+	config, err := config.LoadConfig()
 	if err != nil {
 		logger.Fatalf("Error loading configuration: %v\n", err)
 	}
 
 	client := redis.NewClient(&redis.Options{
-		Addr:     config.LoadBalancer.RedisAddress,
-		Password: config.LoadBalancer.RedisPassword,
-		DB:       config.LoadBalancer.RedisDB,
+		Addr:     config.RedisHost+":"+config.RedisPort,
+		Password: config.RedisPassword,
 	})
 	ctx := context.Background()
 

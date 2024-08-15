@@ -39,17 +39,14 @@ Create a servers.json file in the root directory with the following structure:
 ```json
 {
     "load_balancer": {
-        "port": 8080,
-        "redis_address": "localhost:6379",
-        "redis_password": "",
-        "redis_db": 0,
-        "health_check_interval_seconds": 10
+        "port": 8080, // Port on which the load balancer will listen
+        "health_check_interval_seconds": 10 // Interval in seconds for health checks
     },
     "servers": {
         "urls": [
-            "http://localhost:9001",
-            "http://localhost:9002",
-            "http://localhost:9003"
+            "http://localhost:9001", // server 1
+            "http://localhost:9002", // server 2
+            "http://localhost:9003"  // server 3
         ]
     }
 }
