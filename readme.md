@@ -1,7 +1,7 @@
 # Load Balancer
 
 ## Overview
-This project is a Go-based load balancer designed to distribute incoming HTTP requests to a pool of backend servers based on their current load and health status. It uses Redis for storing server state information such as load and health status, allowing for a robust and scalable architecture.
+This project is a Go-based load balancer designed to distribute incoming HTTP requests to a pool of backend servers based on their current load and health status. It uses internal structures for storing server state information such as load and health status, allowing for a robust and scalable architecture.
 
 ## Features
 - **Dynamic Load Balancing:** Distributes requests to the least loaded server.
@@ -12,7 +12,6 @@ This project is a Go-based load balancer designed to distribute incoming HTTP re
 
 ## Prerequisites
 - Go 1.16 or later
-- Redis server (locally or remotely accessible)
 
 ## Installation
 
@@ -60,8 +59,8 @@ The load balancer will start on the specified port and begin routing traffic to 
 Send HTTP requests to the load balancer's address (e.g., http://localhost:8080). The load balancer will forward the request to the backend server with the least load.
 
 **Server Health Check:**
-The load balancer periodically checks each server's health by sending a GET request to the /health endpoint of each server. If a server does not respond with a status code of 200, it is marked as unhealthy and temporarily removed from the load balancer's pool.
-
+The load balancer periodically checks each server's health by sending a `GET` request to the `/` root endpoint of each server. If a server does not respond with a status code of 200, it is marked as unhealthy and temporarily removed from the load balancer's pool.
+> For development mode the code uses `/` root path. But it is a good choice to have a separate end point like `/health` in the production which returns small amount of response data which is more efficient that a root path which may return large data.
 **Graceful Shutdown:**
 The load balancer handles OS signals (SIGINT, SIGTERM) to perform a graceful shutdown, allowing in-progress requests to complete before terminating.
 
