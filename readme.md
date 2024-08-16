@@ -19,15 +19,9 @@ This project is a Go-based load balancer designed to distribute incoming HTTP re
 1. **Clone the Repository:**
 ```sh
 git clone https://github.com/itsfuad/LoadBalancer.git
-cd loadbalancer
+cd LoadBalancer
 ```
-2. **Install Dependencies:**
-This project uses the Redis client for Go. You can install it using:
-
-```sh
-go get github.com/go-redis/redis/v8
-```
-**Build the Load Balancer:**
+2. **Build the Load Balancer:**
 ```sh
 go build -o LoadBalancer main.go
 ```
@@ -57,7 +51,7 @@ Create a servers.json file in the root directory with the following structure:
 **2. Running the Load Balancer:**
 Start the load balancer by executing:
 ```sh
-./loadbalancer
+./LoadBalancer
 ```
 The load balancer will start on the specified port and begin routing traffic to the least loaded server.
 
