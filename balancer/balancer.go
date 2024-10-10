@@ -1,5 +1,7 @@
 package balancer
 
+import "fmt"
+
 import (
 	"log"
 	"net/http"
@@ -9,6 +11,7 @@ import (
 	"golang.org/x/net/context"
 
 	sv "loadbalancer/server"
+	"loadbalancer/utils"
 )
 
 
@@ -24,7 +27,8 @@ type LoadBalancer struct {
 func (lb *LoadBalancer) AddServer(url string) {
 	server := sv.NewServer(url, lb.Ctx, lb.Logger)
 	lb.Servers = append(lb.Servers, server)
-	lb.Logger.Printf("Added server %s to the load balancer", url)
+	//lb.Logger.Printf("Added server %s to the load balancer", url)
+	lb.Logger.Println(utils.Colorize("Added server "+url+" to the load balancer", utils.GREEN))
 }
 
 func (lb *LoadBalancer) GetLeastLoadedServer() *sv.Server {
@@ -43,7 +47,7 @@ func (lb *LoadBalancer) GetLeastLoadedServer() *sv.Server {
 	}
 
 	if leastLoadedServer != nil {
-		lb.Logger.Printf("Selected server %s with load %d\n", leastLoadedServer.URL, leastLoadedServer.Load)
+		lb.Logger.Println(utils.Colorize("Selected server "+leastLoadedServer.URL+" with load "+fmt.Sprint(leastLoadedServer.Load), utils.BLUE))
 	}
 
 	return leastLoadedServer
@@ -55,7 +59,7 @@ func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		server.HandleRequest(w, r)
 	} else {
 		http.Error(w, "No servers available", http.StatusServiceUnavailable)
-		lb.Logger.Println("No servers available to handle the request")
+		lb.Logger.Println(utils.Colorize("No servers available to handle the request", utils.RED))
 	}
 }
 
@@ -72,7 +76,7 @@ func (lb *LoadBalancer) StartHealthChecks(interval time.Duration) {
 
 func (lb *LoadBalancer) GracefulShutdown() {
 	// Notify about the shutdown process
-	lb.Logger.Println("Shutting down load balancer gracefully")
+	lb.Logger.Println(utils.Colorize("Shutting down load balancer gracefully", utils.YELLOW))
 
 	// Stop accepting new requests
 	lb.mu.Lock()
@@ -82,5 +86,5 @@ func (lb *LoadBalancer) GracefulShutdown() {
 	// Wait for ongoing requests to complete
 	lb.wg.Wait()
 
-	lb.Logger.Println("All servers have been shut down, and connections are closed.")
+	lb.Logger.Println(utils.Colorize("All servers have been shut down, and connections are closed.", utils.YELLOW))
 }

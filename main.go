@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-
 	"golang.org/x/net/context"
 
-	"loadbalancer/config"
 	"loadbalancer/balancer"
+	"loadbalancer/config"
+	"loadbalancer/utils"
 )
 
 func main() {
@@ -55,7 +55,7 @@ func main() {
 
 	// Start the load balancer
 	port := config.LoadBalancer.Port
-	logger.Printf("Load balancer is running on port %d\n", port)
+	logger.Println(utils.Colorize(fmt.Sprintf("Load balancer is running on port %d", port), utils.GREEN))
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), lb); err != nil {
 		logger.Fatalf("Load balancer failed: %v\n", err)
 	}

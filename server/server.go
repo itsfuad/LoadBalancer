@@ -1,7 +1,9 @@
 package server
 
 import (
+	"fmt"
 	"io"
+	"loadbalancer/utils"
 	"log"
 	"net/http"
 	"sync"
@@ -35,18 +37,19 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 
     if !s.Healthy {
         http.Error(w, "Server is not healthy", http.StatusServiceUnavailable)
-        s.logger.Printf("Rejected request to %s as server is not healthy", s.URL)
+        s.logger.Println(utils.Colorize(fmt.Sprintf("Rejected request to %s as server is not healthy", s.URL), utils.RED))
         return
     }
 
     s.Load++
-    s.logger.Printf("Handling request on server %s. Current load: %d\n", s.URL, s.Load)
+
+    s.logger.Println(PrintState(s.URL, s.Load, false))
 
     // Create a new request based on the original request
     req, err := http.NewRequest(r.Method, s.URL+r.RequestURI, r.Body)
     if err != nil {
         http.Error(w, "Error occurred while creating request to target server", http.StatusInternalServerError)
-        s.logger.Printf("Error occurred while creating request to target server: %v", err)
+        s.logger.Println(utils.Colorize(fmt.Sprintf("Error occurred while creating request to target server %s: %v", s.URL, err), utils.RED))
         s.Load--
         return
     }
@@ -61,11 +64,17 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
     // Make the request to the target server
     client := &http.Client{}
     res, err := client.Do(req)
-    if err != nil || res.StatusCode != http.StatusOK {
+    if err != nil {
         http.Error(w, "Error occurred while making request to target server", http.StatusInternalServerError)
-        s.logger.Printf("Error occurred while making request to target server: %v", err)
+        s.logger.Println(utils.Colorize(fmt.Sprintf("Error occurred while making request to target server %s, Error:%v, Status code: %d\n", s.URL, err, res.StatusCode), utils.RED))
         s.Load--
         return
+    } else if res.StatusCode != http.StatusOK {
+        http.Error(w, fmt.Sprintf("Server responded with status code %d for resource %s", res.StatusCode, r.URL.Path), res.StatusCode)
+        if res.StatusCode >= 300 && res.StatusCode < 308 {
+            http.Redirect(w, r, res.Header.Get("Location"), res.StatusCode)
+        }
+        s.logger.Println(utils.Colorize(fmt.Sprintf("Server responded with status code %d for resource %s", res.StatusCode, r.URL.Path), utils.RED))
     }
     defer res.Body.Close()
 
@@ -75,11 +84,19 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
     }
     w.WriteHeader(res.StatusCode)
     if _, err := io.Copy(w, res.Body); err != nil {
-        s.logger.Printf("Failed to relay response body from target server: %v", err)
+        s.logger.Println(utils.Colorize(fmt.Sprintf("Failed to relay response body from target server %s: %v", s.URL, err), utils.RED))
     }
 
     s.Load--
-    s.logger.Printf("Finished request on server %s. Current load: %d\n", s.URL, s.Load)
+    //s.logger.Printf("Finished request on server %s. Current load: %d\n", s.URL, s.Load)
+    s.logger.Println(PrintState(s.URL, s.Load, true))
+}
+
+func PrintState(url string, load int, finished bool) string {
+    if finished {
+        return fmt.Sprintf("Finished request on server %s. Current load: %s\n", utils.Colorize(url, utils.GREEN), utils.Colorize(fmt.Sprintf("%d", load), utils.YELLOW))
+    }
+    return fmt.Sprintf("Handling request on server %s. Current load: %s\n", utils.Colorize(url, utils.GREEN), utils.Colorize(fmt.Sprintf("%d", load), utils.YELLOW))
 }
 
 
@@ -90,9 +107,8 @@ func (s *Server) CheckHealth() {
 
 	if err != nil || resp.StatusCode != http.StatusOK {
 		s.Healthy = false
-		s.logger.Printf("Server %s is unhealthy\n", s.URL)
+		s.logger.Println(utils.Colorize(fmt.Sprintf("Server %s is unhealthy\n", s.URL), utils.RED))
 	} else {
 		s.Healthy = true
-		s.logger.Printf("Server %s is healthy\n", s.URL)
 	}
 }
