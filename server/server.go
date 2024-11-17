@@ -7,8 +7,6 @@ import (
 	"log"
 	"net/http"
 	"sync"
-
-	"golang.org/x/net/context"
 )
 
 const HealthyKey = ":healthy"
@@ -18,15 +16,13 @@ type Server struct {
 	Load    int
 	Healthy bool
 	mu      sync.Mutex
-	Ctx     context.Context
 	logger  *log.Logger
 }
 
-func NewServer(url string, ctx context.Context, logger *log.Logger) *Server {
+func NewServer(url string, logger *log.Logger) *Server {
 	return &Server{
 		URL:     url,
 		Healthy: true,
-		Ctx:     ctx,
 		logger:  logger,
 	}
 }

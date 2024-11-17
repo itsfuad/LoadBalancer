@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
-
 	sv "loadbalancer/server"
 	"loadbalancer/utils"
 )
@@ -18,14 +16,13 @@ import (
 type LoadBalancer struct {
 	Servers []*sv.Server
 	mu      sync.Mutex
-	Ctx     context.Context
 	Logger  *log.Logger
 	wg      sync.WaitGroup
 	shutdown bool
 }
 
 func (lb *LoadBalancer) AddServer(url string) {
-	server := sv.NewServer(url, lb.Ctx, lb.Logger)
+	server := sv.NewServer(url, lb.Logger)
 	lb.Servers = append(lb.Servers, server)
 	//lb.Logger.Printf("Added server %s to the load balancer", url)
 	lb.Logger.Println(utils.Colorize("Added server "+url+" to the load balancer", utils.GREEN))

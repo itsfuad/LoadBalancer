@@ -9,8 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/net/context"
-
 	"loadbalancer/balancer"
 	"loadbalancer/config"
 	"loadbalancer/utils"
@@ -26,11 +24,8 @@ func main() {
 		logger.Fatalf("Error loading configuration: %v\n", err)
 	}
 
-	ctx := context.Background()
-
 	// Create load balancer
 	lb := &balancer.LoadBalancer{
-		Ctx:    ctx,
 		Logger: logger,
 	}
 
