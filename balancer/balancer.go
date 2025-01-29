@@ -12,12 +12,11 @@ import (
 	"loadbalancer/utils"
 )
 
-
 type LoadBalancer struct {
-	Servers []*sv.Server
-	mu      sync.Mutex
-	Logger  *log.Logger
-	wg      sync.WaitGroup
+	Servers  []*sv.Server
+	mu       sync.Mutex
+	Logger   *log.Logger
+	wg       sync.WaitGroup
 	shutdown bool
 }
 
