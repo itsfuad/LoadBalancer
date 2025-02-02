@@ -15,18 +15,18 @@ import (
 )
 
 type LoadBalancer struct {
-	Servers     []*sv.Server
-	mu          sync.RWMutex
-	Logger      *log.Logger
-	wg          sync.WaitGroup
-	shutdown    bool
-	metrics     *Metrics
-	maxRetries  int
+	Servers    []*sv.Server
+	mu         sync.RWMutex
+	Logger     *log.Logger
+	wg         sync.WaitGroup
+	shutdown   bool
+	metrics    *Metrics
+	maxRetries int
 }
 
 type Metrics struct {
-	TotalRequests uint64
-	FailedRequests uint64
+	TotalRequests     uint64
+	FailedRequests    uint64
 	ActiveConnections int64
 }
 
@@ -35,8 +35,8 @@ func NewLoadBalancer(logger *log.Logger) *LoadBalancer {
 		logger = log.New(io.Discard, "", log.LstdFlags)
 	}
 	return &LoadBalancer{
-		Logger: logger,
-		metrics: &Metrics{},
+		Logger:     logger,
+		metrics:    &Metrics{},
 		maxRetries: 3,
 	}
 }
@@ -44,19 +44,19 @@ func NewLoadBalancer(logger *log.Logger) *LoadBalancer {
 func (lb *LoadBalancer) AddServer(url string) error {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
-	
+
 	// Validate server URL
 	if url == "" {
 		return errors.New("server URL cannot be empty")
 	}
-	
+
 	// Check for duplicate servers
 	for _, server := range lb.Servers {
 		if server.URL == url {
 			return fmt.Errorf("server %s already exists", url)
 		}
 	}
-	
+
 	server := sv.NewServer(url, lb.Logger)
 	lb.Servers = append(lb.Servers, server)
 	lb.Logger.Println(utils.Colorize("Added server "+url+" to the load balancer", utils.GREEN))
@@ -66,7 +66,7 @@ func (lb *LoadBalancer) AddServer(url string) error {
 func (lb *LoadBalancer) RemoveServer(url string) error {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
-	
+
 	for i, server := range lb.Servers {
 		if server.URL == url {
 			// Wait for active connections to finish
@@ -75,21 +75,21 @@ func (lb *LoadBalancer) RemoveServer(url string) error {
 				time.Sleep(100 * time.Millisecond)
 				lb.mu.Lock()
 			}
-			
+
 			// Remove server
 			lb.Servers = append(lb.Servers[:i], lb.Servers[i+1:]...)
 			lb.Logger.Println(utils.Colorize("Removed server "+url, utils.YELLOW))
 			return nil
 		}
 	}
-	
+
 	return fmt.Errorf("server %s not found", url)
 }
 
 func (lb *LoadBalancer) GetMetrics() *Metrics {
 	return &Metrics{
-		TotalRequests: atomic.LoadUint64(&lb.metrics.TotalRequests),
-		FailedRequests: atomic.LoadUint64(&lb.metrics.FailedRequests),
+		TotalRequests:     atomic.LoadUint64(&lb.metrics.TotalRequests),
+		FailedRequests:    atomic.LoadUint64(&lb.metrics.FailedRequests),
 		ActiveConnections: atomic.LoadInt64(&lb.metrics.ActiveConnections),
 	}
 }

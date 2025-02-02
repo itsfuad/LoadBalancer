@@ -57,7 +57,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("failed to read request body: %v", err)
 	}
-	
+
 	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	req, err := http.NewRequest(r.Method, s.URL+r.RequestURI, bytes.NewBuffer(bodyBytes))
