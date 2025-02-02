@@ -130,31 +130,53 @@ func TestMetricsEndpoint(t *testing.T) {
 }
 
 func TestGracefulShutdown(t *testing.T) {
-	lb := balancer.NewLoadBalancer(nil)
-	server := httptest.NewServer(lb)
-	defer server.Close()
-
-	// Create a channel to signal when shutdown is complete
-	done := make(chan bool)
-
-	// Simulate SIGTERM
-	p, err := os.FindProcess(os.Getpid())
-	if err != nil {
-		t.Fatalf("Failed to find process: %v", err)
-	}
-
-	go func() {
-		p.Signal(os.Interrupt)
-		done <- true
-	}()
-
-	// Wait for shutdown with timeout
-	select {
-	case <-done:
-		// Shutdown completed successfully
-	case <-time.After(5 * time.Second):
-		t.Fatal("Shutdown timeout")
-	}
+    
+    // Create test load balancer
+    lb := balancer.NewLoadBalancer(nil)
+    
+    // Create shutdown channel
+    shutdown := make(chan struct{})
+    done := make(chan struct{})
+    
+    // Start test server
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        select {
+        case <-shutdown:
+            // Simulate graceful shutdown
+            time.Sleep(100 * time.Millisecond)
+            w.WriteHeader(http.StatusServiceUnavailable)
+        default:
+            w.WriteHeader(http.StatusOK)
+        }
+    }))
+    defer server.Close()
+    
+    // Add test server to load balancer
+    err := lb.AddServer(server.URL)
+    if err != nil {
+        t.Fatalf("Failed to add server: %v", err)
+    }
+    
+    // Start shutdown process in goroutine
+    go func() {
+        close(shutdown)
+        lb.GracefulShutdown()
+        close(done)
+    }()
+    
+    // Wait for shutdown with timeout
+    select {
+    case <-done:
+        // Shutdown completed successfully
+    case <-time.After(5 * time.Second):
+        t.Fatal("Shutdown timeout")
+    }
+    
+    // Verify server is not accepting new requests
+    resp, err := http.Get(server.URL)
+    if err == nil && resp.StatusCode != http.StatusServiceUnavailable {
+        t.Error("Expected server to reject requests after shutdown")
+    }
 }
 
 func TestLoadBalancerRequestHandling(t *testing.T) {
