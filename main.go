@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -25,9 +26,7 @@ func main() {
 	}
 
 	// Create load balancer
-	lb := &balancer.LoadBalancer{
-		Logger: logger,
-	}
+	lb := balancer.NewLoadBalancer(logger)
 
 	// Add servers from configuration
 	for _, url := range config.Servers.URLs {
@@ -37,6 +36,12 @@ func main() {
 	// Start health checks
 	healthCheckInterval := time.Duration(config.LoadBalancer.HealthCheckIntervalSeconds) * time.Second
 	lb.StartHealthChecks(healthCheckInterval)
+
+	// Add metrics endpoint
+	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		metrics := lb.GetMetrics()
+		json.NewEncoder(w).Encode(metrics)
+	})
 
 	// Setup graceful shutdown
 	stop := make(chan os.Signal, 1)

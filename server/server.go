@@ -1,22 +1,26 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"loadbalancer/utils"
 	"log"
 	"net/http"
 	"sync"
+	"time"
 )
 
 const HealthyKey = ":healthy"
 
 type Server struct {
-	URL     string
-	Load    int
-	Healthy bool
-	mu      sync.Mutex
-	logger  *log.Logger
+	URL           string
+	Load          int
+	Healthy       bool
+	LastChecked   time.Time
+	ResponseTimes []time.Duration
+	mu            sync.RWMutex
+	logger        *log.Logger
 }
 
 func NewServer(url string, logger *log.Logger) *Server {
@@ -27,65 +31,74 @@ func NewServer(url string, logger *log.Logger) *Server {
 	}
 }
 
-func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
+func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) error {
+	s.mu.Lock()
+	if !s.Healthy {
+		s.mu.Unlock()
+		return fmt.Errorf("server %s is not healthy", s.URL)
+	}
+	s.Load++
+	s.mu.Unlock()
+
+	defer func() {
+		s.mu.Lock()
+		s.Load--
+		s.mu.Unlock()
+	}()
+
+	start := time.Now()
+
+	// Create new request with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read request body: %v", err)
+	}
+	
+	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	req, err := http.NewRequest(r.Method, s.URL+r.RequestURI, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	// Copy headers
+	utils.CopyHeaders(req.Header, r.Header)
+
+	// Execute request
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Update response times
+	duration := time.Since(start)
+	s.updateResponseTime(duration)
+
+	// Copy response
+	utils.CopyHeaders(w.Header(), resp.Header)
+	w.WriteHeader(resp.StatusCode)
+
+	_, err = io.Copy(w, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to copy response: %v", err)
+	}
+
+	return nil
+}
+
+func (s *Server) updateResponseTime(duration time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if !s.Healthy {
-		http.Error(w, "Server is not healthy", http.StatusServiceUnavailable)
-		s.logger.Println(utils.Colorize(fmt.Sprintf("Rejected request to %s as server is not healthy", s.URL), utils.RED))
-		return
+	s.ResponseTimes = append(s.ResponseTimes, duration)
+	if len(s.ResponseTimes) > 100 {
+		s.ResponseTimes = s.ResponseTimes[1:]
 	}
-
-	s.Load++
-
-	s.logger.Println(PrintState(s.URL, s.Load, false))
-
-	// Create a new request based on the original request
-	req, err := http.NewRequest(r.Method, s.URL+r.RequestURI, r.Body)
-	if err != nil {
-		http.Error(w, "Error occurred while creating request to target server", http.StatusInternalServerError)
-		s.logger.Println(utils.Colorize(fmt.Sprintf("Error occurred while creating request to target server %s: %v", s.URL, err), utils.RED))
-		s.Load--
-		return
-	}
-
-	// Copy the original request headers to the new request
-	for key, values := range r.Header {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
-	}
-
-	// Make the request to the target server
-	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		http.Error(w, "Error occurred while making request to target server", http.StatusInternalServerError)
-		s.logger.Println(utils.Colorize(fmt.Sprintf("Error occurred while making request to target server %s, Error:%v, Status code: %d\n", s.URL, err, res.StatusCode), utils.RED))
-		s.Load--
-		return
-	} else if res.StatusCode != http.StatusOK {
-		http.Error(w, fmt.Sprintf("Server responded with status code %d for resource %s", res.StatusCode, r.URL.Path), res.StatusCode)
-		if res.StatusCode >= 300 && res.StatusCode < 308 {
-			http.Redirect(w, r, res.Header.Get("Location"), res.StatusCode)
-		}
-		s.logger.Println(utils.Colorize(fmt.Sprintf("Server responded with status code %d for resource %s", res.StatusCode, r.URL.Path), utils.RED))
-	}
-	defer res.Body.Close()
-
-	// Relay back the response
-	for k, v := range res.Header {
-		w.Header()[k] = v
-	}
-	w.WriteHeader(res.StatusCode)
-	if _, err := io.Copy(w, res.Body); err != nil {
-		s.logger.Println(utils.Colorize(fmt.Sprintf("Failed to relay response body from target server %s: %v", s.URL, err), utils.RED))
-	}
-
-	s.Load--
-	//s.logger.Printf("Finished request on server %s. Current load: %d\n", s.URL, s.Load)
-	s.logger.Println(PrintState(s.URL, s.Load, true))
 }
 
 func PrintState(url string, load int, finished bool) string {
