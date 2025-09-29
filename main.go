@@ -25,8 +25,8 @@ func main() {
 		logger.Fatalf("Error loading configuration: %v\n", err)
 	}
 
-	// Create load balancer
-	lb := balancer.NewLoadBalancer(logger)
+	// Create load balancer with strategy from config
+	lb := balancer.NewLoadBalancer(logger, config.LoadBalancer.Strategy)
 
 	// Add servers from configuration
 	for _, url := range config.Servers.URLs {

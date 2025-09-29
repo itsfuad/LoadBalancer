@@ -15,13 +15,15 @@ import (
 )
 
 type LoadBalancer struct {
-	Servers    []*sv.Server
-	mu         sync.RWMutex
-	Logger     *log.Logger
-	wg         sync.WaitGroup
-	shutdown   bool
-	metrics    *Metrics
-	maxRetries int
+	Servers         []*sv.Server
+	mu              sync.RWMutex
+	Logger          *log.Logger
+	wg              sync.WaitGroup
+	shutdown        bool
+	metrics         *Metrics
+	maxRetries      int
+	strategy        string
+	roundRobinIndex int64
 }
 
 type Metrics struct {
@@ -30,14 +32,19 @@ type Metrics struct {
 	ActiveConnections int64
 }
 
-func NewLoadBalancer(logger *log.Logger) *LoadBalancer {
+func NewLoadBalancer(logger *log.Logger, strategy string) *LoadBalancer {
 	if logger == nil {
 		logger = log.New(io.Discard, "", log.LstdFlags)
 	}
+	if strategy == "" {
+		strategy = "least_active" // default strategy
+	}
 	return &LoadBalancer{
-		Logger:     logger,
-		metrics:    &Metrics{},
-		maxRetries: 3,
+		Logger:          logger,
+		metrics:         &Metrics{},
+		maxRetries:      3,
+		strategy:        strategy,
+		roundRobinIndex: -1,
 	}
 }
 
@@ -116,6 +123,42 @@ func (lb *LoadBalancer) GetLeastLoadedServer() *sv.Server {
 	return leastLoadedServer
 }
 
+func (lb *LoadBalancer) GetRoundRobinServer() *sv.Server {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+
+	var healthyServers []*sv.Server
+	for _, server := range lb.Servers {
+		if server.Healthy {
+			healthyServers = append(healthyServers, server)
+		}
+	}
+
+	if len(healthyServers) == 0 {
+		return nil
+	}
+
+	// Increment round robin index
+	lb.roundRobinIndex = (lb.roundRobinIndex + 1) % int64(len(healthyServers))
+	selectedServer := healthyServers[lb.roundRobinIndex]
+
+	lb.Logger.Println(utils.Colorize("Selected server "+selectedServer.URL+" (round robin)", utils.BLUE))
+
+	return selectedServer
+}
+
+func (lb *LoadBalancer) GetServer() *sv.Server {
+	switch lb.strategy {
+	case "round_robin":
+		return lb.GetRoundRobinServer()
+	case "least_active":
+		return lb.GetLeastLoadedServer()
+	default:
+		// Default to least active
+		return lb.GetLeastLoadedServer()
+	}
+}
+
 func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Increment metrics
 	atomic.AddUint64(&lb.metrics.TotalRequests, 1)
@@ -131,7 +174,7 @@ func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Try multiple servers if needed
 	var err error
 	for retry := 0; retry < lb.maxRetries; retry++ {
-		server := lb.GetLeastLoadedServer()
+		server := lb.GetServer()
 		if server == nil {
 			continue
 		}

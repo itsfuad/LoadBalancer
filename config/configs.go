@@ -10,8 +10,9 @@ type Config struct {
 	RedisPort     string
 	RedisPassword string
 	LoadBalancer  struct {
-		Port                       int `json:"port"`
-		HealthCheckIntervalSeconds int `json:"health_check_interval_seconds"`
+		Port                       int    `json:"port"`
+		HealthCheckIntervalSeconds int    `json:"health_check_interval_seconds"`
+		Strategy                   string `json:"strategy"` // "least_active" or "round_robin"
 	} `json:"load_balancer"`
 	Servers struct {
 		URLs []string `json:"urls"`

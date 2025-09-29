@@ -45,11 +45,13 @@ func createTestConfig(t *testing.T, servers []MockServer) string {
 
 	configData := config.Config{
 		LoadBalancer: struct {
-			Port                       int "json:\"port\""
-			HealthCheckIntervalSeconds int "json:\"health_check_interval_seconds\""
+			Port                       int    "json:\"port\""
+			HealthCheckIntervalSeconds int    "json:\"health_check_interval_seconds\""
+			Strategy                   string "json:\"strategy\""
 		}{
 			Port:                       8080,
 			HealthCheckIntervalSeconds: 5,
+			Strategy:                   "round_robin",
 		},
 		Servers: struct {
 			URLs []string "json:\"urls\""
@@ -95,7 +97,7 @@ func TestLoadBalancerInitialization(t *testing.T) {
 	}
 
 	// Test load balancer creation
-	lb := balancer.NewLoadBalancer(nil)
+	lb := balancer.NewLoadBalancer(nil, cfg.LoadBalancer.Strategy)
 	if lb == nil {
 		t.Fatal("Failed to create load balancer")
 	}
@@ -103,7 +105,7 @@ func TestLoadBalancerInitialization(t *testing.T) {
 
 func TestMetricsEndpoint(t *testing.T) {
 	// Create a test server with the metrics endpoint
-	lb := balancer.NewLoadBalancer(nil)
+	lb := balancer.NewLoadBalancer(nil, "round_robin")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/metrics" {
 			metrics := lb.GetMetrics()
@@ -132,7 +134,7 @@ func TestMetricsEndpoint(t *testing.T) {
 func TestGracefulShutdown(t *testing.T) {
 
 	// Create test load balancer
-	lb := balancer.NewLoadBalancer(nil)
+	lb := balancer.NewLoadBalancer(nil, "round_robin")
 
 	// Create shutdown channel
 	shutdown := make(chan struct{})
@@ -189,7 +191,7 @@ func TestLoadBalancerRequestHandling(t *testing.T) {
 	}()
 
 	// Create load balancer
-	lb := balancer.NewLoadBalancer(nil)
+	lb := balancer.NewLoadBalancer(nil, "round_robin")
 	for _, s := range mockServers {
 		if err := lb.AddServer(s.URL); err != nil {
 			t.Fatalf("Failed to add server: %v", err)
