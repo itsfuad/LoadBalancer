@@ -53,12 +53,15 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) error {
 		Timeout: 30 * time.Second,
 	}
 
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read request body: %v", err)
+	var bodyBytes []byte
+	var err error
+	if r.Body != nil {
+		bodyBytes, err = io.ReadAll(r.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read request body: %v", err)
+		}
+		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	}
-
-	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	req, err := http.NewRequest(r.Method, s.URL+r.RequestURI, bytes.NewBuffer(bodyBytes))
 	if err != nil {
