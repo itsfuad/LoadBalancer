@@ -16,7 +16,7 @@ import (
 func TestLoadBalancerWithDemoServers(t *testing.T) {
 	// Build the demo server first
 	t.Log("Building demo server...")
-	buildCmd := exec.Command("go", "build", "-o", "demo_server.exe", "./demo/demo_server.go")
+	buildCmd := exec.Command("go", "build", "-o", "demo_server.exe", "demo_server.go")
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build demo server: %v", err)
 	}
@@ -201,7 +201,7 @@ func abs(x float64) float64 {
 func TestDemoServerDirectly(t *testing.T) {
 	// Build the demo server
 	t.Log("Building demo server...")
-	buildCmd := exec.Command("go", "build", "-o", "demo_server_test.exe", "./demo/demo_server.go")
+	buildCmd := exec.Command("go", "build", "-o", "demo_server_test.exe", "demo_server.go")
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build demo server: %v", err)
 	}
