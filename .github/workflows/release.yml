@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - release
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Build for Multiple Platforms
+        run: |
+          mkdir -p releases
+          PLATFORMS=("windows/amd64" "linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64")
+          for platform in "${PLATFORMS[@]}"; do
+            OS=${platform%/*}
+            ARCH=${platform#*/}
+            output_name="releases/loadbalancer-${OS}-${ARCH}"
+            if [ "$OS" = "windows" ]; then
+              output_name="$output_name.exe"
+            fi
+            echo "Building for $OS/$ARCH..."
+            GOOS=$OS GOARCH=$ARCH go build -ldflags="-s -w" -o "$output_name" ./...
+          done
+          chmod +x releases/loadbalancer-*
+
+      - name: Generate Next Version
+        id: semver
+        uses: mathieudutour/github-tag-action@v6.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          dry_run: true
+
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update && sudo apt-get install -y gh
+
+      - name: Check if release already exists
+        id: check_release
+        run: |
+          VERSION="${{ steps.semver.outputs.new_tag }}"
+          if [ -z "$VERSION" ]; then
+            echo "no_version=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists, skipping..."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        if: steps.check_release.outputs.skip == 'false' && steps.semver.outputs.new_tag != ''
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.semver.outputs.new_tag }}
+          name: "LoadBalancer ${{ steps.semver.outputs.new_tag }}"
+          body: |
+            ## What's Changed
+            
+            ${{ steps.semver.outputs.changelog }}
+            
+            ## Downloads
+            
+            Download the appropriate binary for your platform:
+            - **Linux (x64)**: loadbalancer-linux-amd64
+            - **Linux (ARM64)**: loadbalancer-linux-arm64
+            - **Windows (x64)**: loadbalancer-windows-amd64.exe
+            - **macOS (Intel)**: loadbalancer-darwin-amd64
+            - **macOS (Apple Silicon)**: loadbalancer-darwin-arm64
+            
+            ## Installation
+            
+            1. Download the binary for your platform
+            2. Rename it to `loadbalancer` (or `loadbalancer.exe` on Windows)
+            3. Make it executable: `chmod +x loadbalancer` (Linux/macOS)
+            4. Move it to a directory in your PATH
+            
+            ## Usage
+            
+            ```bash
+            loadbalancer --help
+            ```
+          files: |
+            releases/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
