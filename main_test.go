@@ -87,7 +87,7 @@ func TestLoadBalancerInitialization(t *testing.T) {
 	defer os.Remove(configFile)
 
 	// Test configuration loading
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
