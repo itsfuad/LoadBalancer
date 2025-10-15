@@ -7,6 +7,7 @@ on:
       - completed
     branches:
       - release
+  # Also allow manual triggering for releases
   workflow_dispatch:
 
 permissions:
@@ -28,23 +29,28 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.23'
+          go-version: '1.21'
 
       - name: Build for Multiple Platforms
+        working-directory: ./compiler
         run: |
-          mkdir -p releases
+          mkdir -p ../releases
+          
+          # Build for different platforms
           PLATFORMS=("windows/amd64" "linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64")
           for platform in "${PLATFORMS[@]}"; do
             OS=${platform%/*}
             ARCH=${platform#*/}
-            output_name="releases/loadbalancer-${OS}-${ARCH}"
-            if [ "$OS" = "windows" ]; then
+            output_name="../releases/octoload-${OS}-${ARCH}"
+            if [ $OS = "windows" ]; then
               output_name="$output_name.exe"
             fi
             echo "Building for $OS/$ARCH..."
-            GOOS=$OS GOARCH=$ARCH go build -ldflags="-s -w" -o "$output_name" ./...
+            GOOS=$OS GOARCH=$ARCH go build -ldflags="-s -w" -o "$output_name" .
           done
-          chmod +x releases/loadbalancer-*
+          
+          # Make binaries executable
+          chmod +x ../releases/octoload-*
 
       - name: Generate Next Version
         id: semver
@@ -53,18 +59,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           dry_run: true
 
-      - name: Install GitHub CLI
-        run: |
-          sudo apt-get update && sudo apt-get install -y gh
-
       - name: Check if release already exists
         id: check_release
         run: |
           VERSION="${{ steps.semver.outputs.new_tag }}"
-          if [ -z "$VERSION" ]; then
-            echo "no_version=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             echo "Release $VERSION already exists, skipping..."
             echo "skip=true" >> $GITHUB_OUTPUT
@@ -79,7 +77,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.semver.outputs.new_tag }}
-          name: "LoadBalancer ${{ steps.semver.outputs.new_tag }}"
+          name: "Octoload ${{ steps.semver.outputs.new_tag }}"
           body: |
             ## What's Changed
             
@@ -88,26 +86,13 @@ jobs:
             ## Downloads
             
             Download the appropriate binary for your platform:
-            - **Linux (x64)**: loadbalancer-linux-amd64
-            - **Linux (ARM64)**: loadbalancer-linux-arm64
-            - **Windows (x64)**: loadbalancer-windows-amd64.exe
-            - **macOS (Intel)**: loadbalancer-darwin-amd64
-            - **macOS (Apple Silicon)**: loadbalancer-darwin-arm64
-            
-            ## Installation
-            
-            1. Download the binary for your platform
-            2. Rename it to `loadbalancer` (or `loadbalancer.exe` on Windows)
-            3. Make it executable: `chmod +x loadbalancer` (Linux/macOS)
-            4. Move it to a directory in your PATH
-            
-            ## Usage
-            
-            ```bash
-            loadbalancer --help
+            - **Linux (x64)**: octoload-linux-amd64
+            - **Linux (ARM64)**: octoload-linux-arm64
+            - **Windows (x64)**: octoload-windows-amd64.exe
+            - **macOS (Intel)**: octoload-darwin-amd64
+            - **macOS (Apple Silicon)**: octoload-darwin-arm64
             ```
           files: |
             releases/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

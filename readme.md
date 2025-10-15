@@ -1,7 +1,9 @@
-# Load Balancer
+# Octoload
 
 ## Overview
 This project is a Go-based load balancer designed to distribute incoming HTTP requests to a pool of backend servers. It supports multiple load balancing strategies, health monitoring, and graceful shutdown capabilities, making it robust and scalable for production use.
+
+![logo](cover.png)
 
 ## Features
 - **Multiple Load Balancing Strategies:**
@@ -21,12 +23,12 @@ This project is a Go-based load balancer designed to distribute incoming HTTP re
 
 1. **Clone the Repository:**
 ```sh
-git clone https://github.com/itsfuad/LoadBalancer.git
-cd LoadBalancer
+git clone https://github.com/itsfuad/octoload.git
+cd octoload
 ```
 2. **Build the Load Balancer:**
 ```sh
-go build -o LoadBalancer main.go
+go build -o octoload main.go
 ```
 
 ## Configuration
@@ -91,7 +93,7 @@ See [LOAD_BALANCING_STRATEGIES.md](LOAD_BALANCING_STRATEGIES.md) for detailed in
 **2. Running the Load Balancer:**
 Start the load balancer by executing:
 ```sh
-./LoadBalancer
+./octoload
 ```
 or
 ```sh
@@ -207,7 +209,7 @@ go test -v -run TestMetricsEndpoint
 ## Project Structure
 
 ```
-LoadBalancer/
+octoload/
 ├── main.go                          # Entry point
 ├── servers.json                     # Configuration file
 ├── balancer/
