@@ -19,9 +19,12 @@ type Config struct {
 	} `json:"servers"`
 }
 
-func LoadConfig() (*Config, error) {
+func LoadConfig(filenames ...string) (*Config, error) {
 
 	filename := "servers.json"
+	if len(filenames) > 0 {
+		filename = filenames[0]
+	}
 
 	file, err := os.Open(filename)
 	if err != nil {
