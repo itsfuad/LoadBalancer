@@ -33,14 +33,14 @@ jobs:
 
       - name: Build for Multiple Platforms
         run: |
-          mkdir -p ../releases
+          mkdir -p releases
           
           # Build for different platforms
           PLATFORMS=("windows/amd64" "linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64")
           for platform in "${PLATFORMS[@]}"; do
             OS=${platform%/*}
             ARCH=${platform#*/}
-            output_name="../releases/octoload-${OS}-${ARCH}"
+            output_name="releases/octoload-${OS}-${ARCH}"
             if [ $OS = "windows" ]; then
               output_name="$output_name.exe"
             fi
@@ -49,7 +49,7 @@ jobs:
           done
           
           # Make binaries executable
-          chmod +x ../releases/octoload-*
+          chmod +x releases/*
 
       - name: Generate Next Version
         id: semver
@@ -71,6 +71,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Debug file listing
+        run: ls -R releases
+
       - name: Create Release
         if: steps.check_release.outputs.skip == 'false' && steps.semver.outputs.new_tag != ''
         uses: softprops/action-gh-release@v1
@@ -90,8 +93,6 @@ jobs:
             - **Windows (x64)**: octoload-windows-amd64.exe
             - **macOS (Intel)**: octoload-darwin-amd64
             - **macOS (Apple Silicon)**: octoload-darwin-arm64
-            ```
-          files: |
-            releases/*
+          files: releases/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
